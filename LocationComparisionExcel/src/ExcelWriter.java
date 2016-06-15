@@ -37,7 +37,7 @@ public class ExcelWriter {
         rowCount = 1;
     }
 
-    public void insertRow(String id, double latitude, double longitude, float accuracy, double googleLat,
+    public void insertRow(String id, double latitude, double longitude, double accuracy, double googleLat,
                           double googleLong, double diff) {
         Row r = sh.createRow(rowCount++);
 

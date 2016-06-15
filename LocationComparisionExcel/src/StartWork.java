@@ -4,8 +4,6 @@ import java.sql.*;
 import java.util.Scanner;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonSyntaxException;
-import org.glassfish.jersey.client.ClientResponse;
 import org.glassfish.jersey.client.JerseyClient;
 import org.glassfish.jersey.client.JerseyClientBuilder;
 
@@ -17,9 +15,9 @@ import javax.ws.rs.core.Response;
  * Created by kanj on 15/6/16.
  */
 public class StartWork {
-    private static final String JDBC_DRIVER = "com.mysql.cj.jdbc.Driver";
+    private static final String JDBC_DRIVER = "com.mysql.jdbc.Driver";
     //private static final String ADDRESS_SERVICE_HOST = "http://flowaddressservice-prod.us-east-1.elasticbeanstalk.com";
-    private static final String ADDRESS_SERVICE_HOST = "http://52.4.23.126:27001"; // Local PC
+    //private static final String ADDRESS_SERVICE_HOST = "http://52.4.23.126:27001"; // Local PC
     private static final String ADDRESS_SERVICE_PATH = "v1/addresses/";
 
     private static final String CONFIG_FILE = "/home/ubuntu/kanj/lce.cfg";
@@ -35,6 +33,7 @@ public class StartWork {
             String dbUrl = scanner.next();
             String dbUser = scanner.next();
             String dbPassword = scanner.next();
+            String addressServiceHost = scanner.next();
             scanner.close();
 
             Class.forName(JDBC_DRIVER);
@@ -49,12 +48,12 @@ public class StartWork {
             ExcelWriter ew = new ExcelWriter();
             Gson gsonParser = new Gson();
             JerseyClient client = JerseyClientBuilder.createClient();
-            WebTarget target = client.target(ADDRESS_SERVICE_HOST);
             while (rows.next()) {
                 try {
                     String destAddressId = rows.getString("destinationAddressId");
                     if (destAddressId != null) {
-                        target.path(ADDRESS_SERVICE_PATH + destAddressId);
+                        WebTarget target = client.target(addressServiceHost).path(ADDRESS_SERVICE_PATH + destAddressId);
+                        System.out.println(target.getUri());
                         Invocation.Builder builder = target.request();
 
                         Response response = builder.get();
@@ -63,15 +62,16 @@ public class StartWork {
                         System.out.println("response= "+jsonString);
                         GoogleLocation loc = gsonParser.fromJson(jsonString, GoogleLocation.class);
 
-                        if (loc != null && loc.getLocation() != null) {
+                        if (loc != null && loc.getLocation() != null && loc.getLocation().length == 2) {
                             double[] latLong = loc.getLocation();
                             double lat = rows.getDouble("latitude");
                             double lon = rows.getDouble("longitude");
+                            double acc = rows.getDouble("accuracy");
                             ew.insertRow(
                                     rows.getString("id"),
                                     lat,
                                     lon,
-                                    rows.getFloat("accuracy"),
+                                    acc,
                                     latLong[1],
                                     latLong[0],
                                     distance(lat, lon, latLong[1], latLong[0])
@@ -104,23 +104,6 @@ public class StartWork {
         } catch (FileNotFoundException | ClassNotFoundException | SQLException e) {
             e.printStackTrace();
         }
-        /*Gson gsonParser = new Gson();
-        JerseyClient client = JerseyClientBuilder.createClient();
-        WebTarget target = client.target(ADDRESS_SERVICE_HOST).path(ADDRESS_SERVICE_PATH + "5759a493605b745d7ee345e6");
-        Invocation.Builder builder = target.request();
-
-        Response response = builder.get();
-
-        String jsonString = response.readEntity(String.class);
-        System.out.println("response= "+jsonString);
-        GoogleLocation loc = gsonParser.fromJson(jsonString, GoogleLocation.class);
-        if (loc != null) {
-            double[] latLong = loc.getLocation();
-            if (latLong != null && latLong.length == 2) {
-                System.out.println("Latitude= "+latLong[1]);
-                System.out.println("Longitude= "+latLong[0]);
-            }
-        }*/
     }
 
     private static double distance (double lat1, double lon1, double lat2, double lon2) {
