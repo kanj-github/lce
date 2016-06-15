@@ -53,13 +53,11 @@ public class StartWork {
                     String destAddressId = rows.getString("destinationAddressId");
                     if (destAddressId != null) {
                         WebTarget target = client.target(addressServiceHost).path(ADDRESS_SERVICE_PATH + destAddressId);
-                        System.out.println(target.getUri());
                         Invocation.Builder builder = target.request();
 
                         Response response = builder.get();
 
                         String jsonString = response.readEntity(String.class);
-                        System.out.println("response= "+jsonString);
                         GoogleLocation loc = gsonParser.fromJson(jsonString, GoogleLocation.class);
 
                         if (loc != null && loc.getLocation() != null && loc.getLocation().length == 2) {
@@ -103,6 +101,11 @@ public class StartWork {
             ew.saveFile();
         } catch (FileNotFoundException | ClassNotFoundException | SQLException e) {
             e.printStackTrace();
+            System.out.println("Make sure that /home/ubuntu/kanj/lce.cfg has the following contents-");
+            System.out.println("jdbc:mysql://<MySQL host>:<PORT>/flo_delivery");
+            System.out.println("<sql user name>");
+            System.out.println("<sql password>");
+            System.out.println("<address service host eg. http://52.4.23.126:27001>");
         }
     }
 
