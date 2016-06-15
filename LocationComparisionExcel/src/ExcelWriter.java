@@ -25,12 +25,40 @@ public class ExcelWriter {
 
         wb = new XSSFWorkbook();
         sh = wb.createSheet();
-        rowCount = 0;
+        Row r = sh.createRow(0);
+        int cellCount = 0;
+        r.createCell(cellCount++).setCellValue("id");
+        r.createCell(cellCount++).setCellValue("latitude");
+        r.createCell(cellCount++).setCellValue("longitude");
+        r.createCell(cellCount++).setCellValue("accuracy");
+        r.createCell(cellCount++).setCellValue("google lat");
+        r.createCell(cellCount++).setCellValue("google long");
+        r.createCell(cellCount).setCellValue("difference");
+        rowCount = 1;
     }
 
-    public void insertRow(String str) {
+    public void insertRow(String id, double latitude, double longitude, float accuracy, double googleLat,
+                          double googleLong, double diff) {
         Row r = sh.createRow(rowCount++);
-        r.createCell(0).setCellValue(str);
+
+        int cellCount = 0;
+        r.createCell(cellCount++).setCellValue(id);
+        r.createCell(cellCount++).setCellValue(latitude);
+        r.createCell(cellCount++).setCellValue(longitude);
+        r.createCell(cellCount++).setCellValue(accuracy);
+        r.createCell(cellCount++).setCellValue(googleLat);
+        r.createCell(cellCount++).setCellValue(googleLong);
+        r.createCell(cellCount).setCellValue(diff);
+    }
+
+    public void insertRowWithoutGoogleLocation(String id, double latitude, double longitude, float accuracy) {
+        Row r = sh.createRow(rowCount++);
+
+        int cellCount = 0;
+        r.createCell(cellCount++).setCellValue(id);
+        r.createCell(cellCount++).setCellValue(latitude);
+        r.createCell(cellCount++).setCellValue(longitude);
+        r.createCell(cellCount++).setCellValue(accuracy);
     }
 
     public void saveFile() {
