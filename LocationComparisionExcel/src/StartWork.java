@@ -1,6 +1,8 @@
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.sql.*;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Scanner;
 
 import com.google.gson.Gson;
@@ -22,12 +24,30 @@ public class StartWork {
 
     private static final String CONFIG_FILE = "/home/ubuntu/kanj/lce.cfg";
     //private static final String CONFIG_FILE = "/home/kanj/Desktop/lce.cfg"; // Local PC
-    private static final String QUERY = "SELECT clusterItemDeliveryDetails.id, latitude, longitude, accuracy, clusterItems.destinationAddressId " +
-            "FROM clusterItemDeliveryDetails, clusterItems " +
-            "WHERE clusterItems.id = clusterItemDeliveryDetails.clusterItemId " +
+    private static final String QUERY = "SELECT clusterItemDeliveryDetails.id, latitude, longitude, accuracy, clusterItems.destinationAddressId, clusterItemDeliveryDetails.updatedAt, trips.vehicleId " +
+            "FROM clusterItemDeliveryDetails, clusterItems, clusters, trips " +
+            "WHERE (clusterItemDeliveryDetails.updatedAt BETWEEN '%1$s' AND '%2$s')" +
+                " AND (clusterItems.id = clusterItemDeliveryDetails.clusterItemId)" +
+                " AND (clusterItems.clusterId = clusters.id)" +
+                " AND (clusters.tripId = trips.id) " +
             "ORDER BY clusterItems.clusterId, clusterItemDeliveryDetails.updatedAt;";
 
     public static void main(String args[]) {
+        if (args.length != 2) {
+            System.out.println("Provide 2 arguments- start and end date in SQL format (eg. \"2016-06-20 00:00:00\")");
+            return;
+        }
+
+        // Test date arguments
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        try {
+            sdf.parse(args[0]);
+            sdf.parse(args[1]);
+        } catch (ParseException pe) {
+            pe.printStackTrace();
+            return;
+        }
+
         try {
             Scanner scanner = new Scanner(new FileInputStream(CONFIG_FILE)).useDelimiter("\n");
             String dbUrl = scanner.next();
@@ -39,16 +59,19 @@ public class StartWork {
             Class.forName(JDBC_DRIVER);
             Connection sqlConnection = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
             Statement statement = sqlConnection.createStatement();
-            ResultSet rows = statement.executeQuery(QUERY);
+            ResultSet rows = statement.executeQuery(String.format(QUERY, args[0], args[1]));
 
             if (rows == null) {
+                System.out.println("Null rows returned from SQL");
                 return;
             }
 
             ExcelWriter ew = new ExcelWriter();
             Gson gsonParser = new Gson();
             JerseyClient client = JerseyClientBuilder.createClient();
+            int count = 0;
             while (rows.next()) {
+                System.out.println("Processing row " + count++);
                 try {
                     String destAddressId = rows.getString("destinationAddressId");
                     if (destAddressId != null) {
@@ -72,15 +95,32 @@ public class StartWork {
                                     acc,
                                     latLong[1],
                                     latLong[0],
-                                    distance(lat, lon, latLong[1], latLong[0])
+                                    distance(lat, lon, latLong[1], latLong[0]),
+                                    loc.getLine1(),
+                                    rows.getInt("vehicleId"),
+                                    rows.getString("updatedAt")
                             );
-                        } else {
+                        } else if (loc != null) {
                             // There's no google location
                             ew.insertRowWithoutGoogleLocation(
                                     rows.getString("id"),
                                     rows.getDouble("latitude"),
                                     rows.getDouble("longitude"),
-                                    rows.getFloat("accuracy")
+                                    rows.getFloat("accuracy"),
+                                    loc.getLine1(),
+                                    rows.getInt("vehicleId"),
+                                    rows.getString("updatedAt")
+                            );
+                        } else {
+                            // Address service gave null response
+                            ew.insertRowWithoutGoogleLocation(
+                                    rows.getString("id"),
+                                    rows.getDouble("latitude"),
+                                    rows.getDouble("longitude"),
+                                    rows.getFloat("accuracy"),
+                                    "",
+                                    rows.getInt("vehicleId"),
+                                    rows.getString("updatedAt")
                             );
                         }
                     } else {
@@ -89,7 +129,10 @@ public class StartWork {
                                 rows.getString("id"),
                                 rows.getDouble("latitude"),
                                 rows.getDouble("longitude"),
-                                rows.getFloat("accuracy")
+                                rows.getFloat("accuracy"),
+                                "",
+                                rows.getInt("vehicleId"),
+                                rows.getString("updatedAt")
                         );
                     }
                 } catch (Exception e) {
